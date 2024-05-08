@@ -1,0 +1,191 @@
+// import { ObjectTypeDeclaration } from 'typescript';
+import { setData } from './dataStore';
+import { getData } from './dataStore';
+import { checkToken } from './token';
+import { notificationAdd } from './notification';
+
+const ERROR = { error: 'error' };
+
+const channelDetailsV2 = (token: string, channelId: number): object => {
+  const data: any = getData();
+  // checks if any users or channels exist.
+  if (data.users.length < 1 || data.channels.length < 1) {
+    return ERROR;
+  }
+
+  if (!checkToken(token)) {
+    return ERROR;
+  }
+  // finds the user that owns the token.
+  let reqUser;
+  for (const user of data.users) {
+    if (user.token === token) {
+      reqUser = user.Id;
+    }
+  }
+
+  // checks if channel exists and user is a member of the channel.
+  for (const channel of data.channels) {
+    if (channel.id === channelId) {
+      // channel exists
+      // checks if user is a member and if so, returns channel details.
+      if (channel.allMembers.includes(reqUser)) {
+        // returns channel details since if this if statement is true,
+        // than all cases must be true including the user being a member
+        // of this channel.
+        return {
+          name: channel.name,
+          isPublic: channel.isPublic,
+          ownerMembers: channel.ownerMembers,
+          allMembers: channel.allMembers,
+        };
+      }
+      // if reached this point, the user is guaranteed not a member of the
+      // channel so an error must be returned.
+      return ERROR;
+    }
+  }
+  // if reached this point than the first if statement within the for loop above
+  // was never true, therefore the channel doesn't exist.
+  return ERROR;
+};
+
+const channelJoinV2 = (token: string, channelId: number): object => {
+  const data: any = getData();
+
+  // check if users object or channels object is empty.
+  if (data.users.length < 1 || data.channels.length < 1) {
+    return ERROR;
+  }
+  const requestingUser: any = [];
+
+  if (!checkToken(token)) {
+    return ERROR;
+  }
+  // finds the user that owns the token.
+  let reqUser;
+  for (const user of data.users) {
+    if (user.token === token) {
+      reqUser = user.Id;
+    }
+  }
+
+  // checks if channel exists and user is a member.
+  for (const channel of data.channels) {
+    if (channel.id === channelId) {
+      if (channel.allMembers.includes(reqUser)) {
+        // if this if statement is true, then user is already a member and
+        // can't join again.
+        return { error: 'error' };
+      } else if (channel.isPublic === false) {
+        if (requestingUser.permissions === 1) {
+          if (channel.allMembers === []) {
+            channel.allMembers.push(reqUser);
+            channel.ownerMembers.push(reqUser);
+            return {};
+          }
+          channel.allMembers.push(reqUser);
+          return {};
+        }
+        return ERROR;
+      }
+      channel.allMembers.push(reqUser);
+      return {};
+      notificationAdd(token, channelId, -1);
+    }
+  }
+  return ERROR;
+};
+
+const channelInviteV2 = (token: string, channelId: number, uId: number): object => {
+  const data: any = getData();
+
+  if (!checkToken(token)) {
+    return ERROR;
+  }
+
+  let reqUser;
+  for (const user of data.users) {
+    if (user.token === token) {
+      reqUser = user.Id;
+    }
+  }
+
+  // Checks to see if channel exists
+  let validChannel = false;
+  for (const channel of data.channels) {
+    if (channelId === channel.channelId) {
+      validChannel = true;
+    }
+  }
+
+  // if channel or user don't exist then return false
+  if (validChannel === false) {
+    return ERROR;
+  }
+
+  for (const user of data.users) {
+    if (uId === user.Id) {
+      for (const channel of data.channels) {
+        // Checks if user is already a member or if authUser is not a member
+        if (channelId === channel.channelId) {
+          if (uId in channel.allMembers || !(reqUser in channel.allMembers)) {
+            return ERROR;
+          } else {
+            channel.allMembers.push(uId);
+            setData(data);
+            return {};
+          }
+        }
+      }
+    }
+  }
+
+  // return error in case something wasn't tested
+  return ERROR;
+};
+
+const channelMessagesV2 = (token: string, channelId: number, start: number): object => {
+  const data: any = getData();
+  if (!checkToken(token)) {
+    return ERROR;
+  }
+
+  for (const channel of data.channels) {
+    if (channelId === channel.channelid) {
+      const Messages = channel.messages.reverse();
+      if (start > Messages.length) {
+        return ERROR;
+      }
+      const pagedMsgs: any = [];
+      let i = 0;
+      for (const message of Messages) {
+        if (i > Messages.length) {
+          return {
+            messages: pagedMsgs,
+            start: start,
+            end: -1,
+          };
+        } else if (i === 50) {
+          return {
+            messages: pagedMsgs,
+            start: start,
+            end: start + 50,
+          };
+        }
+        const messageList = {
+          messageId: message.Id,
+          uId: message.userID,
+          message: message.message,
+          timeSent: message.timeSent
+        };
+        pagedMsgs.push(messageList);
+        i++;
+      }
+    }
+  }
+  // if channel doesnt exist return error
+  return ERROR;
+};
+
+export { channelDetailsV2, channelJoinV2, channelInviteV2, channelMessagesV2 };

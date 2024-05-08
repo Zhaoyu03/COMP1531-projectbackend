@@ -1,0 +1,7 @@
+First meeting occured on 8th June, we agreed to work on the following functions
+
+Zhaoyu : authRegisterV1, channelsCreateV1
+Zehua : channelsListV1, channelsListallV1
+James : channelDetailsV1, channelJoinV1
+Nadav: channelInviteV1, channelMessagesV1
+Dusan: authLoginV1
